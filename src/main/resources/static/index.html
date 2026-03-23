@@ -69,7 +69,7 @@
       margin-bottom: 1rem;
     }
 
-    /* User ID input */
+    /* Username input */
     #user-section {
       display: flex;
       gap: 0.5rem;
@@ -83,7 +83,7 @@
       white-space: nowrap;
     }
 
-    #userId {
+    #username {
       flex: 1;
       background: #0d0f14;
       border: 1px solid #30363d;
@@ -95,7 +95,7 @@
       transition: border-color 0.2s;
     }
 
-    #userId:focus { border-color: #58a6ff; }
+    #username:focus { border-color: #58a6ff; }
 
     /* Status buttons */
     .btn-grid {
@@ -247,8 +247,8 @@
 <div class="card">
   <h2>Set Your Status</h2>
   <div id="user-section">
-    <label for="userId">User ID</label>
-    <input id="userId" type="number" value="1" min="1" />
+    <label for="username">Username</label>
+    <input id="username" type="text" value="alice" />
   </div>
   <div class="btn-grid" id="btn-grid"></div>
 </div>
@@ -309,7 +309,7 @@
       <span class="feed-emoji">${emojiMap[data.status] ?? '❓'}</span>
       <div class="feed-body">
         <div class="feed-top">
-          <span class="feed-user">User #${data.userId}</span>
+          <span class="feed-user">${data.username}</span>
           <span class="badge badge-${data.status}">${data.status}</span>
           <span class="feed-time">${formatTime(data.timestamp)}</span>
         </div>
@@ -342,7 +342,7 @@
     stompClient.subscribe('/topic/feed', frame => {
       const data = JSON.parse(frame.body);
       prependFeedItem(data);
-      showToast(`User #${data.userId} is now ${data.status} ${emojiMap[data.status] ?? ''}`);
+      showToast(`${data.username} is now ${data.status} ${emojiMap[data.status] ?? ''}`);
     });
   }, () => {
     dot.classList.add('disconnected');
@@ -351,10 +351,10 @@
 
   // POST status
   function postStatus(status) {
-    const userId = parseInt(document.getElementById('userId').value, 10) || 1;
+    const username = document.getElementById('username').value.trim() || 'anonymous';
     fetch('/api/status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'userId': userId },
+      headers: { 'Content-Type': 'application/json', 'X-Username': username },
       body: JSON.stringify({ status })
     })
     .then(r => r.ok ? r.json() : Promise.reject(r))

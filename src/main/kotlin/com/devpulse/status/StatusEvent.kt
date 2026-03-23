@@ -15,7 +15,7 @@ class StatusEvent(
     val id: Long = 0,
 
     @Column(nullable = false)
-    val userId: Long,
+    val username: String,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

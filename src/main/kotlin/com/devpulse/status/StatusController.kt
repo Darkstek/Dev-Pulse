@@ -9,10 +9,10 @@ class StatusController(private val statusService: StatusService) {
 
     @PostMapping
     fun setStatus(
-        @RequestHeader("userId") userId: Long,
+        @RequestHeader("X-Username") username: String,
         @RequestBody request: StatusRequest
     ): ResponseEntity<StatusResponse> =
-        ResponseEntity.ok(statusService.setStatus(userId, request))
+        ResponseEntity.ok(statusService.setStatus(username, request))
 
     @GetMapping("/feed")
     fun getFeed(): ResponseEntity<List<StatusFeedItem>> =

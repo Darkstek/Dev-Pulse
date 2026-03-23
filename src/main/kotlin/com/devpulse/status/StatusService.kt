@@ -10,13 +10,13 @@ data class StatusRequest(val status: String)
 
 data class StatusResponse(
     val message: String,
-    val userId: Long,
+    val username: String,
     val status: Status,
     val timestamp: LocalDateTime
 )
 
 data class StatusFeedItem(
-    val userId: Long,
+    val username: String,
     val status: Status,
     val timestamp: LocalDateTime
 )
@@ -56,7 +56,7 @@ class StatusService(
 ) {
 
     @Transactional
-    fun setStatus(userId: Long, request: StatusRequest): StatusResponse {
+    fun setStatus(username: String, request: StatusRequest): StatusResponse {
         val status = try {
             Status.valueOf(request.status.uppercase())
         } catch (e: IllegalArgumentException) {
@@ -64,16 +64,16 @@ class StatusService(
         }
 
         val event = statusRepository.save(
-            StatusEvent(userId = userId, status = status)
+            StatusEvent(username = username, status = status)
         )
 
         val message = funnyMessages[status]!!.random()
-        val response = StatusResponse(message = message, userId = event.userId, status = event.status, timestamp = event.timestamp)
+        val response = StatusResponse(message = message, username = event.username, status = event.status, timestamp = event.timestamp)
         messagingTemplate.convertAndSend("/topic/feed", response)
         return response
     }
 
     fun getFeed(): List<StatusFeedItem> =
         statusRepository.findAllByOrderByTimestampDesc(PageRequest.of(0, 20))
-            .map { StatusFeedItem(userId = it.userId, status = it.status, timestamp = it.timestamp) }
+            .map { StatusFeedItem(username = it.username, status = it.status, timestamp = it.timestamp) }
 }
