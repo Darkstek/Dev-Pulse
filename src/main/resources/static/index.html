@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dev Pulse</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0f14;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #58a6ff;
+    }
+
+    header p {
+      color: #6e7681;
+      margin-top: 0.25rem;
+      font-size: 0.9rem;
+    }
+
+    #status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #3fb950;
+      margin-right: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+
+    #status-dot.disconnected { background: #f85149; }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 560px;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #6e7681;
+      margin-bottom: 1rem;
+    }
+
+    /* User ID input */
+    #user-section {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    #user-section label {
+      font-size: 0.85rem;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+
+    #userId {
+      flex: 1;
+      background: #0d0f14;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #userId:focus { border-color: #58a6ff; }
+
+    /* Status buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .status-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.85rem 0.5rem;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      background: #0d0f14;
+      color: #c9d1d9;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      transition: border-color 0.2s, background 0.2s, transform 0.1s;
+    }
+
+    .status-btn:hover {
+      background: #1c2128;
+      border-color: #58a6ff;
+      transform: translateY(-1px);
+    }
+
+    .status-btn:active { transform: translateY(0); }
+
+    .status-btn .emoji { font-size: 1.5rem; }
+
+    /* Feed */
+    #feed {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    #feed::-webkit-scrollbar { width: 4px; }
+    #feed::-webkit-scrollbar-track { background: transparent; }
+    #feed::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .feed-item {
+      background: #0d0f14;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .feed-emoji { font-size: 1.4rem; flex-shrink: 0; }
+
+    .feed-body { flex: 1; min-width: 0; }
+
+    .feed-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    .feed-user {
+      font-weight: 600;
+      color: #58a6ff;
+      font-size: 0.9rem;
+    }
+
+    .feed-time {
+      font-size: 0.75rem;
+      color: #6e7681;
+      white-space: nowrap;
+    }
+
+    .feed-message {
+      margin-top: 0.2rem;
+      font-size: 0.82rem;
+      color: #8b949e;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 2px 8px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    .badge-CODING    { background: #1f4c2e; color: #3fb950; border: 1px solid #238636; }
+    .badge-DEBUGGING { background: #3d1f1f; color: #f85149; border: 1px solid #da3633; }
+    .badge-COFFEE    { background: #3d2e1a; color: #d29922; border: 1px solid #9e6a03; }
+    .badge-CRYING    { background: #1d2a3d; color: #79c0ff; border: 1px solid #388bfd; }
+    .badge-DEPLOYING { background: #2d1f3d; color: #d2a8ff; border: 1px solid #8957e5; }
+
+    #empty-state {
+      text-align: center;
+      color: #6e7681;
+      padding: 2rem 0;
+      font-size: 0.9rem;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      color: #c9d1d9;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      max-width: 320px;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Dev Pulse</h1>
+  <p><span id="status-dot" class="disconnected"></span><span id="conn-label">Connecting…</span></p>
+</header>
+
+<!-- Set Status -->
+<div class="card">
+  <h2>Set Your Status</h2>
+  <div id="user-section">
+    <label for="userId">User ID</label>
+    <input id="userId" type="number" value="1" min="1" />
+  </div>
+  <div class="btn-grid" id="btn-grid"></div>
+</div>
+
+<!-- Live Feed -->
+<div class="card">
+  <h2>Live Feed</h2>
+  <ul id="feed"><li id="empty-state">Waiting for updates…</li></ul>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const STATUSES = [
+    { key: 'CODING',    emoji: '💻' },
+    { key: 'DEBUGGING', emoji: '🐛' },
+    { key: 'COFFEE',    emoji: '☕' },
+    { key: 'CRYING',    emoji: '😭' },
+    { key: 'DEPLOYING', emoji: '🚀' },
+  ];
+
+  // Build buttons
+  const grid = document.getElementById('btn-grid');
+  STATUSES.forEach(({ key, emoji }) => {
+    const btn = document.createElement('button');
+    btn.className = 'status-btn';
+    btn.innerHTML = `<span class="emoji">${emoji}</span>${key}`;
+    btn.onclick = () => postStatus(key);
+    grid.appendChild(btn);
+  });
+
+  // Toast
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // Feed rendering
+  const emojiMap = Object.fromEntries(STATUSES.map(s => [s.key, s.emoji]));
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function prependFeedItem(data) {
+    const feed = document.getElementById('feed');
+    const empty = document.getElementById('empty-state');
+    if (empty) empty.remove();
+
+    const li = document.createElement('li');
+    li.className = 'feed-item';
+    li.innerHTML = `
+      <span class="feed-emoji">${emojiMap[data.status] ?? '❓'}</span>
+      <div class="feed-body">
+        <div class="feed-top">
+          <span class="feed-user">User #${data.userId}</span>
+          <span class="badge badge-${data.status}">${data.status}</span>
+          <span class="feed-time">${formatTime(data.timestamp)}</span>
+        </div>
+        <div class="feed-message">${data.message ?? ''}</div>
+      </div>`;
+    feed.prepend(li);
+
+    // Keep max 20 items
+    while (feed.children.length > 20) feed.lastChild.remove();
+  }
+
+  // Load initial feed
+  fetch('/api/status/feed')
+    .then(r => r.json())
+    .then(items => items.slice().reverse().forEach(prependFeedItem))
+    .catch(() => {});
+
+  // WebSocket / STOMP
+  const dot   = document.getElementById('status-dot');
+  const label = document.getElementById('conn-label');
+
+  const socket = new SockJS('/ws');
+  const stompClient = Stomp.over(socket);
+  stompClient.debug = null; // silence console noise
+
+  stompClient.connect({}, () => {
+    dot.classList.remove('disconnected');
+    label.textContent = 'Connected';
+
+    stompClient.subscribe('/topic/feed', frame => {
+      const data = JSON.parse(frame.body);
+      prependFeedItem(data);
+      showToast(`User #${data.userId} is now ${data.status} ${emojiMap[data.status] ?? ''}`);
+    });
+  }, () => {
+    dot.classList.add('disconnected');
+    label.textContent = 'Disconnected';
+  });
+
+  // POST status
+  function postStatus(status) {
+    const userId = parseInt(document.getElementById('userId').value, 10) || 1;
+    fetch('/api/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'userId': userId },
+      body: JSON.stringify({ status })
+    })
+    .then(r => r.ok ? r.json() : Promise.reject(r))
+    .then(data => showToast(data.message))
+    .catch(() => showToast('Failed to set status. Is the server running?'));
+  }
+</script>
+</body>
+</html>
